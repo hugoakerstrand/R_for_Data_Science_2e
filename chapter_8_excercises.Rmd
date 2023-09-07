@@ -1,0 +1,121 @@
+---
+title: "Chapter 8 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+students <- read_csv("https://pos.it/r4ds-students-csv", na = c("N/A", "")) |> 
+  rename(
+    student_id = `Student ID`,
+    full_name = `Full Name`,
+    meal_plan = `mealPlan`,
+    age = AGE,
+    favourite_food = favourite.food
+  ) |>  # More simple but same result: janitor::clean_names()
+  mutate(meal_plan = factor(meal_plan),
+         age = parse_number(if_else(age == "five", "5", age))
+  )
+```
+
+
+### 8.2.4
+
+---
+
+1.  
+
+I'd use `read_delim(file, sep = "|")`.
+
+2.
+
+They are identical:
+
+```{r}
+
+formals_read_csv <- formals(read_csv) |> names()
+formals_read_tsv <- formals(read_tsv) |> names()
+
+setdiff(formals_read_csv, formals_read_tsv)
+
+```
+
+3. 
+
+Always the `file` needs to be specified, and specifically `read_fwf()` uses 
+fixed width of column, which it can guess or be supplied. 
+
+4.
+Specify the `quote` argument to change it from the default ("):
+
+```{r}
+read_csv("x,y\n1,'a,b'", quote = "\'")
+```
+
+5. 
+
+```{r}
+
+read_csv("a,b\n1,2,3\n4,5,6") #Forces the three numbers per row to match the percieved column names a & b
+read_csv("a,b,c\n1,2\n1,2,3,4") #Same here, but only for the third row
+read_csv("a,b\n\"1") #The 1 is outside the ""
+read_csv("a,b\n1,2\na,b") #The last row is missing, due to the na?
+read_csv("a;b\n1;3") #Wrong function, should use read_csv2 for ; delimiter
+
+```
+
+6.
+
+a.
+```{r}
+annoying <- tibble(
+  `1` = 1:10,
+  `2` = `1` * 2 + rnorm(length(`1`))
+)
+
+annoying |> 
+  pull(1)
+```
+
+b.
+```{r}
+annoying <- tibble(
+  `1` = 1:10,
+  `2` = `1` * 2 + rnorm(length(`1`))
+)
+
+annoying |> 
+  ggplot() +
+  geom_point(aes(x = `1`, y = `2`))
+```
+
+c.
+
+```{r}
+annoying <- tibble(
+  `1` = 1:10,
+  `2` = `1` * 2 + rnorm(length(`1`))
+)
+
+annoying |> 
+  mutate(`3` = `1` / `2`)
+```
+
+d. 
+
+```{r}
+annoying <- tibble(
+  `1` = 1:10,
+  `2` = `1` * 2 + rnorm(length(`1`))
+)
+
+annoying |> 
+  rename(one = `1`, two = `2`)
+
+```
+

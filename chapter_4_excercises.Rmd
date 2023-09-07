@@ -1,0 +1,362 @@
+---
+title: "Chapter 4 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)  
+library(nycflights13)
+```
+
+
+
+
+### 4.2.5
+
+---
+1. 
+
+```{r}
+
+flights |>
+  filter(arr_delay > 120) #Filter out flights that arrive more than two hours delayed
+
+flights |>
+  filter(dest %in% c("IAH", "HOU"))  #Filter out flights with destination Huoston
+
+#Create a vector to filter flights by American, United, Delta
+carrier_codes <- airlines |> filter(grepl("American|United|Delta",airlines$name)) |>
+  select(carrier) |>
+  unlist(use.names = F)
+
+flights |>
+  filter(carrier %in% carrier_codes) #Filter out flights by vector
+
+flights |>
+  filter(month %in% c(7, 8, 9)) #Filter out flights that happened in July, August, & September
+
+flights |>
+  filter(dep_delay == 0 & arr_delay > 120) #Filter out flights that departed on time, but arrived more than two hours delayed
+
+flights |>
+  filter(arr_delay >= 60 & (sched_arr_time - sched_dep_time) -  (arr_time - dep_time) > 30) #Filter out flights that were delayed by at least an hour, but made up over 30 minutes in flight
+  
+```
+
+2.
+
+```{r}
+
+flights |>
+  arrange(desc(dep_delay), dep_time)
+
+```
+
+3.
+
+```{r}
+
+flights |> 
+  arrange(desc(distance/air_time)) #Sorted on fastest flight
+
+```
+
+4.
+
+```{r}
+
+flights |>
+  distinct(day,month,year) |> #Filter out each unique date entry to count the number of unique days with flight data
+  count()
+```
+
+5.
+
+```{r}
+flights |>
+  arrange(distance) |> #Top entry is shortest trip
+  arrange(desc(distance)) #Top entry is longest trip
+
+```
+
+6.
+
+Filtering before arranging results in the minimal computation.
+
+### 4.3.5
+
+1.
+
+The `dep_time` is largely linear with `sched_dep_time`, the `dep_delay` is their delta
+
+```{r}
+
+dep_data <- flights |>
+  select(dep_time, sched_dep_time, dep_delay)
+
+dep_data
+```
+
+2.
+
+```{r}
+flights |> glimpse()
+```
+
+
+`dep_time` is the 4th column (type = int), `dep_delay` is the 6th (type = dbl), 
+`arr_time` is the 7th (type = int), and `arr_delay` is the 9th (type = dbl).
+
+- Most straight forward is to pass the column names or positions, although I 
+personally prefer names over numbers (for clarity).
+- Second most straight forward (and less verbose), would be to use the 
+`starts_with()` selector.
+- More labourously, one could use both positive and negative selection;
+first by `select(contains(c("arr_","dep_")))` and then remove the columns 
+starting with `sched`.
+- More complicated options and combinations are of course available, 
+but this is too complicated to be recommended.
+
+```{r}
+
+flights |> 
+  select(dep_time, dep_delay, arr_time, arr_delay)
+
+```
+
+```{r}
+
+flights |> 
+  select(4, 6, 7, 9)
+
+```
+
+```{r}
+
+flights |>
+  select(starts_with(c("arr_", "dep_")))
+
+```
+
+
+```{r}
+
+flights |> 
+ select(
+   contains(
+     c("arr_","dep_")) #Include the underscore, or else arr will match to carrier as well
+   ) |>
+  select(
+    !contains("sched")
+  )
+
+```
+
+3.
+
+It produces the same result as if `carrier` was only mentioned once.
+
+```{r}
+flights |>
+  select(carrier, carrier)
+```
+
+4.
+
+`any_of()` is a selection helper for a character vector. As opposed to `all_of()`, 
+this selector is not strict - meaning that it doesn't check to make sure that all 
+of the vector elements are found.
+
+```{r}
+variables <- c("year", "month", "day", "dep_delay", "arr_delay")
+
+flights |> select(any_of(variables))
+```
+
+5. 
+
+It doesn't surprise me as, select helpers have default setting `.ignore.case = TRUE`.
+
+```{r}
+
+flights |> select(contains("TIME"))
+
+```
+
+6.
+
+```{r}
+
+flights |>
+  rename(air_time_min = air_time)
+
+```
+
+7.
+
+The error is due to the fact that `select` has removed all columns except 
+`tailnum`, therefore `arrange` cannot find and sort based on `arr_delay`
+
+### 4.5.7
+
+1.
+
+Let's first look at what carrier has the worst average departure delays (using `dep_delay`)
+
+```{r}
+
+origin_delay <- flights |> 
+  summarise(
+    n = n(),
+    delays = mean(dep_delay, na.rm = T), #calculate the average delay
+    .by = carrier #group by dest
+  ) |> 
+  arrange(desc(delays))
+
+origin_delay |>
+  ggplot()+
+  geom_col(aes(x = fct_reorder(carrier, delays), y = delays))
+
+```
+
+However, a lot of the data represent `carrier` and `dest`combinations with few
+observations:
+
+```{r}
+flights |> 
+  group_by(carrier, dest) |> 
+  summarize(n = n(), .groups = "drop") |> 
+  ggplot()+
+  geom_histogram(aes(x=n), binwidth = 100)
+```
+
+Let's filter the `carrier` and `dest` flights with less than 100 observations, 
+and then plot the `mean(dep_delay)` for a given `carrier` and `dest`:
+
+```{r}
+flights |> 
+  mutate(n = n(),
+         .before = 1,
+         .by = c(carrier, dest)) |> 
+  filter(n >= 100) |> 
+  summarize(n = n(), 
+            delays = mean(dep_delay, na.rm = T), 
+            .by = c(carrier,dest)
+            ) |> 
+  ggplot()+
+  geom_point(aes(x = dest, y = delays, color = carrier),
+             position = position_dodge(.9))+
+  facet_wrap( ~ carrier)
+
+origin_delay
+```
+
+By looking at these two plots, we can see the difficulty in comparing the average 
+delay per carrier in the first graph - some carriers only have one specific flight 
+and become very sensitive to this specific route (e.g. `F9`). At the same time, 
+comparing DL to EV shows that clearly the latter is having a systematic issue with
+delays across all its destinations.
+
+2.
+
+```{r}
+
+flights |> 
+  slice_max(dep_delay, n = 1, by = dest)
+  
+
+```
+
+3.
+
+Delays are much worse in the evening
+
+```{r}
+
+flights |> 
+  summarise(
+    delays = mean(dep_delay,
+                  na.rm = TRUE),
+    .by = hour
+  ) |> 
+  ggplot()+
+  geom_col(aes(x = hour, y = delays))
+
+```
+
+4.
+
+A negative value passed to `n` will make `slice_min()` ignore that many rows of the group - so -1 will make a group of 5 only use 4 rows.
+
+5.
+
+`count()` will calculate the total observations of the group. 
+If you specify `sort = TRUE` it will put the most numerous observation on the 
+top of the output.
+
+6.
+
+a. `group_by(y)` will result in two groups belonging either to a or b.
+
+```{r}
+df <- tibble(
+  x = 1:5,
+  y = c("a", "b", "a", "a", "b"),
+  z = c("K", "K", "L", "L", "K")
+)
+
+df |>
+  group_by(y)
+```
+
+b. It will arrange `df` according to `df$y` (a, then b) - the df is not grouped!
+
+```{r}
+df |> 
+  arrange(y)
+```
+
+c. It will give give a 2x2 tibble: a `y` column (a or b) and `mean_x` column of x
+
+```{r}
+df |>
+  group_by(y) |>
+  summarize(mean_x = mean(x))
+```
+
+d. Same as above, but a third column `z` and another row as a consequence of 
+`group_by(y, z)`. The message states that the output is now grouped by only `y`,
+rather than also `z`.
+
+```{r}
+df |>
+  group_by(y, z) |>
+  summarize(mean_x = mean(x))
+```
+
+e. It is different in not maintaining any grouping variable.
+
+```{r}
+df |>
+  group_by(y, z) |>
+  summarize(mean_x = mean(x), .groups = "drop")
+```
+
+f. They are different in `mutate` adding a column, and `summarize` producing a
+new one, consisting of grouping variables and the `mean_x`.
+
+```{r}
+df |>
+  group_by(y, z) |>
+  summarize(mean_x = mean(x))
+
+df |>
+  group_by(y, z) |>
+  mutate(mean_x = mean(x))
+```
+

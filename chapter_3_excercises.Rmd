@@ -1,0 +1,59 @@
+---
+title: "Chapter 3 excercises"
+aut4hor: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)  
+library(palmerpenguins)  
+library(ggthemes)
+```
+
+
+
+
+### 3.5
+
+---
+
+1.
+
+Object name calling uses "1" instead of i.
+
+2.
+
+```{r, error = TRUE}
+
+libary(todyverse)
+
+ggplot(dTA = mpg) + 
+  geom_point(maping = aes(x = displ y = hwy)) +
+  geom_smooth(method = "lm)
+  
+```
+
+```{r}
+
+library(tidyverse)
+
+ggplot(data = mpg,
+      mapping = aes(x = displ, y = hwy)
+      )+ 
+  geom_point()+
+  geom_smooth(method = "lm")
+
+```
+
+3.
+
+`Tools` > `Keyboard Shortcuts Help`
+
+4.
+
+The scatter plot will be saved - because `?ggsave` states that the `plot` option 
+calls `last_plot()` unless otherwise stated.
