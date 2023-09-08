@@ -191,3 +191,182 @@ ggplot(mpg) +
 
 1.
 
+```{r}
+
+diamonds |>
+  summarise(
+    min = min(depth),
+    max = max(depth),
+    median = median(depth),
+    .by = cut
+  ) |> 
+  ggplot(aes(x = cut, y = median)) +
+  geom_pointrange(aes(ymin = min, ymax = max))
+
+```
+
+2.
+
+`geom_col` uses `stat_identity` instead of `stat_count` (default for `geom_bar`),
+it is therefore advisable to use `geom_col` when you want to plot the values.
+
+3.
+
+Summary of geoms listed in the [ggplot2 reference:](https://ggplot2.tidyverse.org/reference/), pairs share the same arguments:
+
+```{r}
+
+geoms <- tribble(
+  ~geom, ~stat, ~shape, ~use,
+  "geom_abline", NA, "line", "Diagonal reference line",
+  "geom_hline", NA, "line", "Horizontal reference line",
+  "geom_vline", NA, "line", "Vertical reference line",
+  "geom_bar", "stat_count", "bar", "Bar chart",
+  "geom_col", NA, "bar", "Bar chart",
+  "geom_bin_2d", "stat_bin_2d", "bin", "Heatmap of 2d bin counts",
+  "geom_blank", NA , NA, "empty space",
+  "geom_boxplot", "stat_boxplot", "boxplot", "A box and whiskers plot (in the style of Tukey)",
+  "geom_contour", "stat_contour", "lines", "2D contours of a 3D surface",
+  "geom_contour_filled", "stat_contour_filled", "line", "2D contours of a 3D surface",
+  "geom_count", "stat_sum", "point", "Count overlapping points",
+  "geom_density", "stat_density", "line", "Smoothed density estimates",
+  "geom_density_2d", "stat_density_2d", "contour", "Contours of a 2D density estimate",
+  "geom_density_2d_filled", "stat_density_2d_filled", "contour", "Contours of a 2D density estimate",
+  "geom_dotplot", NA, "point", "Dot plot",
+  "geom_errorbarh", NA, "errorbar", "Horizontal error bars",
+  "geom_function", "stat_function", "line", "Draw a function as a continuous curve",
+  "geom_hex", "stat_bin_hex", "hexagon", "Hexagonal heatmap of 2d bin counts",
+  "geom_freqpoly", "stat_bin", "line", "Histograms and frequency polygons",
+  "geom_histogram", "stat_bin", "bin", "Histograms and frequency polygons",
+  "geom_jitter", NA, "point", "Jittered points",
+  "geom_crossbar", NA, "crossbar", "Vertical intervals: lines, crossbars & errorbars",
+  "geom_errorbar", NA, "errorbar", "Vertical intervals: lines, crossbars & errorbars",
+  "geom_linerange", NA, "line", "Vertical intervals: lines, crossbars & errorbars",
+  "geom_pointrange", NA, "line and point", "Vertical intervals: lines, crossbars & errorbars",
+  "geom_map", NA, "line", "Polygons from a reference map",
+  "geom_path", NA, "line", "Connect observations",
+  "geom_line", NA, "line", "Connect observations",
+  "geom_step", NA, "line", "Connect observations",
+  "geom_point", NA, "point", "Points",
+  "geom_polygon", NA, "polygon", "Polygons",
+  "geom_qqline", "stat_qqline", "line", "A quantile-quantile plot",
+  "geom_qq", "stat_qq", "point", "A quantile-quantile plot",
+  "geom_quantile", "stat_quantile", "line", "Quantile regression",
+  "geom_ribbon", "stat_align", "area", "Ribbons and area plots",
+  "geom_area", "stat_align", "area", "Ribbons and area plots",
+  "geom_rug", NA, "line", "Rug plots in the margins",
+  "geom_segment", NA, "line", "Line segments and curves",
+  "geom_line", NA, "line", "Line segments and curves",
+  "geom_smooth", "stat_smooth", "line", "Smoothed conditional means",
+  "geom_spoke", NA, "line", "Line segments parameterised by location, direction and distance",
+  "geom_label", NA, "text", "Text",
+  "geom_text", NA, "text", "Text",
+  "geom_raster", NA, "raster", "Rectangles",
+  "geom_rect", NA, "raster", "Rectangles",
+  "geom_tile", NA, "raster", "Rectangles",
+  "geom_violin", "stat_ydensity", "violin", "Violin plot",
+  "geom_sf", "stat_sf", "simple feature", "Visualise sf objects"
+  
+        )
+
+ geoms
+
+```
+
+4.
+
+`stat_smooth` calculates the following variables (x or y, depending on orientation):
+
+- `after_stat(x)`, the predicted value.
+- `after_stat(xmin)`, lower pointwise confidence interval around the mean.
+- `after_stat(xmax)`, upper pointwise confidence interval around the mean.
+- `after_stat(se)`, standard error.
+
+5. 
+
+The difference can be seen if plotted:
+
+```{r}
+
+ggplot(diamonds, aes(x = cut, y = after_stat(prop))) + 
+  geom_bar()
+
+ggplot(diamonds, aes(x = cut, fill = color, y = after_stat(prop))) + 
+  geom_bar()
+
+ggplot(diamonds, aes(x = cut, y = after_stat(prop), group = 1)) + 
+  geom_bar()
+
+ggplot(diamonds, aes(x = cut, fill = color, y = after_stat(prop), group = 1)) + 
+  geom_bar()
+
+```
+
+After setting `group` to 1, the proportion is calculated across all the different cuts - as opossed to running proportion for each cut.
+
+### 10.6.1
+
+---
+
+1. 
+
+Comparing setting different positions:
+
+```{r}
+
+ggplot(mpg, aes(x = cty, y = hwy)) + 
+  geom_point()
+
+ggplot(mpg, aes(x = cty, y = hwy)) + 
+  geom_point(position = "identity")
+
+ggplot(mpg, aes(x = cty, y = hwy)) + 
+  geom_point(position = "jitter")
+
+```
+
+2.
+
+Nothing, setting it to identity produces the same plot:
+
+```{r}
+
+ggplot(mpg, aes(x = displ, y = hwy)) +
+  geom_point()
+ggplot(mpg, aes(x = displ, y = hwy)) +
+  geom_point(position = "identity")
+
+
+```
+
+3.
+
+`width` and `height`, if omitted it amounts to 40% in both positive and negative direction (i.e. total spread is twice).
+
+4.
+
+```{r}
+
+ggplot(mpg, aes(x = displ, y = hwy)) +
+  geom_point()
+
+ggplot(mpg, aes(x = displ, y = hwy)) +
+  geom_count()
+
+ggplot(mpg, aes(x = displ, y = hwy)) +
+  geom_jitter()
+
+
+```
+
+5.
+
+`position = dodge2`:
+
+```{r}
+
+ggplot(mpg, aes(x = drv, y = hwy, fill = model)) +
+  geom_boxplot()
+
+```
+
