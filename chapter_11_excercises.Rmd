@@ -1,0 +1,430 @@
+---
+title: "Chapter 11 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+library(nycflights13)
+library(lvplot)
+library(hexbin)
+
+```
+
+### 11.3.3
+
+---
+
+1.
+
+There is a large majority of diamonds that have similar measurements in all
+dimensions. 
+
+```{r}
+
+diamonds |> 
+  select(x:z) |> 
+  pivot_longer(where(is.numeric), names_to = "variable") |> 
+  ggplot(aes(x = value)) +
+  geom_histogram(binwidth = 0.5) +
+  facet_wrap(~ variable) +
+  coord_cartesian(ylim = c(0, 50))
+
+```
+
+2.
+
+There is an auspicious lack of diamonds valued at 1500.
+
+```{r}
+
+diamonds |> 
+  ggplot(aes(x = price)) +
+  geom_histogram(binwidth = 25) 
+
+
+diamonds |> 
+  ggplot(aes(x = price)) +
+  geom_histogram(binwidth = 25) +
+  coord_cartesian(xlim = c(0, 2000))
+
+```
+
+3. 
+
+There are only 23 diamonds with a .99 carat, and 1558 with 1.00 carat.  
+The definition of a carat is its weight, so perhaps diamonds are selected to 
+be a certain weight after cutting.
+
+```{r}
+
+diamonds |> 
+  filter(carat >= 0.95 & carat <= 1.05) |> 
+  ggplot(aes(x = carat)) +
+  geom_histogram(binwidth = 0.01) +
+  geom_text(
+    stat = "bin",
+    aes(label = after_stat(count)),
+    binwidth = 0.01,
+    vjust = -0.5
+  )
+```
+
+4.
+
+While `xlim` converts all the values outside of its defined borders to `NA`, 
+the `coord_cartesian` leaves the data untouched and only zooms. 
+
+```{r}
+
+diamonds |> 
+  ggplot() +
+  geom_histogram(aes(x = carat), binwidth = .1) + #set bin width
+  scale_x_continuous()
+
+diamonds |> 
+  ggplot() +
+  geom_histogram(aes(x = carat), binwidth = .1) +  #set bin width
+  scale_x_continuous(limits = c(-1, 1))
+
+diamonds |> 
+  ggplot() +
+  geom_histogram(aes(x = carat), binwidth = .1) +  #set bin width
+  coord_cartesian(xlim = c(-1, 1))
+
+diamonds |> 
+  ggplot() +
+  geom_histogram(aes(x = carat)) +
+  scale_x_continuous(limits = c(-1, 1))
+
+diamonds |> 
+  ggplot() +
+  geom_histogram(aes(x = carat)) +
+  coord_cartesian(xlim = c(-1, 1))
+
+diamonds |> 
+  ggplot() +
+  geom_histogram(aes(x = carat)) +
+  scale_x_continuous(limits = c(.875, 1))
+
+diamonds |> 
+  ggplot() +
+  geom_histogram(aes(x = carat)) +
+  coord_cartesian(xlim = c(.875, 1))
+```
+
+### 11.4.1
+
+---
+
+1. 
+
+`geom_histogram` and `geom_bar` both keeps NA as default. However, since they
+cannot be graphed, they are removed.
+
+```{r}
+flights |> 
+  ggplot(aes(x = dep_time)) +
+  geom_histogram()
+
+flights |> 
+  ggplot(aes(x = dep_time)) +
+  geom_bar()
+
+
+```
+
+2.
+
+`na.rm =  TRUE` makes sure that the operation succeeds for `mean` and `sum`
+
+```{r}
+
+flights |> 
+  summarise(
+    mean = mean(dep_time),
+    sum = sum(dep_time)
+  )
+
+flights |> 
+  summarise(
+    mean = mean(dep_time, na.rm = TRUE),
+    sum = sum(dep_time, na.rm = TRUE)
+  )
+
+```
+
+3.
+
+```{r}
+
+nycflights13::flights |> 
+  mutate(
+    cancelled = is.na(dep_time),
+    sched_hour = sched_dep_time %/% 100,
+    sched_min = sched_dep_time %% 100,
+    sched_dep_time = sched_hour + (sched_min / 60)
+  ) |> 
+  ggplot(aes(x = sched_dep_time)) + 
+  geom_freqpoly(aes(color = cancelled), binwidth = 1/4) +
+  facet_wrap(~ cancelled, scales = "free_y")
+
+```
+
+### 11.5.1.1
+
+---
+
+1.
+
+
+```{r}
+nycflights13::flights |> 
+  mutate(
+    cancelled = is.na(dep_time),
+    sched_hour = sched_dep_time %/% 100,
+    sched_min = sched_dep_time %% 100,
+    sched_dep_time = sched_hour + (sched_min / 60)
+  ) |> 
+  ggplot(aes(x = sched_dep_time, y = after_stat(density))) + 
+  geom_freqpoly(aes(color = cancelled), binwidth = 1/4)
+
+nycflights13::flights |> 
+  mutate(
+    cancelled = is.na(dep_time),
+    sched_hour = sched_dep_time %/% 100,
+    sched_min = sched_dep_time %% 100,
+    sched_dep_time = sched_hour + (sched_min / 60)
+  ) |> 
+  ggplot(aes(x = cancelled, y = sched_dep_time)) +
+  geom_boxplot()
+```
+
+2.
+
+```{r}
+
+diamonds |> 
+  ggplot(aes(x = price, y = fct_reorder(cut, price, median))) +
+  geom_boxplot()
+
+diamonds |> 
+  ggplot(aes(x = price, y = fct_reorder(color, price, median))) +
+  geom_boxplot()
+
+diamonds |> 
+  ggplot(aes(x = price, y = fct_reorder(clarity, price, median))) +
+  geom_boxplot()
+
+diamonds |> 
+  relocate(price, .before = 1) |> 
+  relocate(carat, .after = clarity) |> 
+  pivot_longer(5:ncol(diamonds)) |> 
+  ggplot(aes(x = price, y = value)) +
+  geom_point() +
+  geom_smooth() +
+  facet_wrap(~ name, scales = "free_y")
+
+```
+
+It seems that `carat` correlates the best with `price` - plotting against `cut`
+we can see that the fair diamonds tend to be the heaviest.
+
+```{r}
+
+diamonds |> 
+  ggplot(aes(x = fct_reorder(cut, carat, median), y = carat)) +
+  geom_boxplot()
+
+```
+
+3.
+
+```{r}
+diamonds |> 
+  ggplot(aes(x = fct_reorder(cut, carat, median), y = carat)) +
+  geom_boxplot() +
+  coord_flip()
+
+diamonds |> 
+  ggplot(aes(y = fct_reorder(cut, carat, median), x = carat)) +
+  geom_boxplot()
+```
+
+4.
+
+
+```{r}
+
+diamonds |> 
+  ggplot(aes(x = fct_reorder(cut, carat, median), y = price)) +
+  geom_lv(aes(fill = after_stat(LV)))
+
+```
+
+5.
+
+From `?geom_violin`: `A violin plot is a compact display of a continuous distribution. It is a blend of geom_boxplot() and geom_density(): a violin plot is a mirrored density plot displayed in the same way as a boxplot.` 
+
+```{r}
+
+diamonds |> 
+  ggplot(aes(x = color, y = price)) +
+  geom_violin()
+
+diamonds |> 
+  ggplot(aes(x = price)) +
+  geom_histogram() +
+  facet_wrap(~ color)
+
+diamonds |> 
+  ggplot(aes(x = price, color = color)) +
+  geom_freqpoly()
+
+diamonds |> 
+  ggplot(aes(x = price, color = color)) +
+  geom_density()
+
+```
+
+6.
+
+`geom_quasirandom` avoids overlapping by using a van der Corput sequence or 
+Tukeys texturing. `geom_beeswarm` does point-size based offset.
+
+### 11.5.2.1
+
+1.
+
+```{r}
+
+diamonds.summary <- diamonds |> 
+  count(color, cut) |>  
+  group_by(cut) |> 
+  mutate(freq_cut = n / sum(n)) |> 
+  group_by(color) |> 
+  mutate(freq_color = n / sum(n))
+
+
+  ggplot(data = diamonds.summary, aes(x = color, y = cut)) +
+  geom_tile(aes(fill = n))
+  
+  ggplot(data = diamonds.summary, aes(x = color, y = cut)) +
+  geom_tile(aes(fill = freq_cut))
+  
+  ggplot(data = diamonds.summary, aes(x = color, y = cut)) +
+  geom_tile(aes(fill = freq_color))
+
+
+```
+
+2.
+
+```{r}
+
+diamonds |> 
+  ggplot(aes(x = price, color = x, fill = cut)) +
+  geom_bar() +
+  scale_y_continuous(limits = c(0,50))
+
+
+```
+
+3.
+
+```{r}
+
+flights |> 
+  mutate(month = as_factor(month),
+         dest = as_factor(dest)
+  ) |> 
+  relocate(month, dest, .before = 1) |> 
+  group_by(month, dest) |> 
+  summarise(
+    avg_dep_delay = mean(dep_delay, na.rm = TRUE),
+    .groups = "drop"
+  ) |> 
+  ggplot(aes(x = month, y = dest, fill = avg_dep_delay)) +
+  geom_tile()
+
+```
+
+### 11.5.3.1
+
+---
+
+1.
+
+`cut_width` sets the bin width to a specific number, `cut_number` divides the data into a specific number of bins.
+
+2.
+
+```{r}
+
+diamonds |> 
+  filter(carat < 3) |> 
+  ggplot(
+    aes(
+    x = carat, 
+    color = cut_width(price, 5000)
+    )
+  ) +
+  geom_freqpoly()
+
+```
+
+3.
+
+The prices follows the carat (weight), which is as I expect based on our other analysis.
+
+```{r}
+
+diamonds |> 
+  filter(carat < 3) |> 
+  ggplot(
+    aes(
+      x = cut_width(carat, 0.5),
+      y = price
+    )
+  ) +
+  geom_boxplot()
+
+```
+
+4.
+
+5.
+
+Plotting of individual values is better for picking out outliers, because 
+they are empasized against the majority of cases that correlate. A binned 
+summary graph would not show outliers as clearly, if at all.
+
+```{r}
+
+diamonds |> 
+  filter(x >= 4) |> 
+  ggplot(aes(x = x, y = y)) +
+  geom_point() +
+  coord_cartesian(xlim = c(4, 11), ylim = c(4, 11))
+
+```
+
+6.
+
+As can be seen in this graph, by enforcing a certain number of observations we
+better understand the underlying data:
+
+```{r}
+
+diamonds |> 
+  filter(x >= 4) |> 
+  ggplot(aes(x = carat, y = price)) + 
+  geom_boxplot(aes(group = cut_number(carat, 20)))
+
+```
+
