@@ -1,0 +1,162 @@
+---
+title: "Chapter 13 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+library(nycflights13)
+```
+
+### 13.2.4
+
+---
+
+1.
+
+`?near()` states that this function checks whether the difference between
+the two numbers is less than `.Machine$double.eps^0.5`.
+
+```{r}
+near(sqrt(2)^2, 2)
+
+```
+
+2.
+
+```{r}
+
+flights_delay_check <- flights |> 
+  select(dep_time, sched_dep_time, dep_delay) |> 
+  mutate(delay_check = near(!is.na(dep_delay), !is.na(dep_time - sched_dep_time)))
+
+flights_delay_check |> 
+  count(delay_check)
+
+```
+
+### 13.3.4
+
+1.
+
+```{r}
+
+flights |> 
+  filter(arr_delay %in% NA & !(dep_delay %in% NA))
+
+flights |> 
+  filter(!(arr_time %in% NA) & !(sched_arr_time %in% NA) & arr_delay %in% NA)
+
+```
+
+2.
+
+This appears to be cancelled flights.
+
+```{r}
+
+flights |> 
+  filter(dep_time %in% NA)
+
+```
+
+3.
+
+```{r}
+
+library(ggrepel)
+
+delayed_flights_df <- flights |> 
+  mutate(
+    avg_delay = mean(arr_delay, na.rm = TRUE),
+    total_flights = n(),
+    delayed = sum(is.na(dep_delay)),
+    prop_delayed = delayed / total_flights,
+    .by = day,
+    .keep = "used"
+  ) |> 
+  distinct(day, .keep_all = TRUE)
+
+delayed_flights_df |> 
+  ggplot(aes(x = avg_delay, y = prop_delayed)) +
+  geom_point(size = 3) +
+  geom_smooth() +
+  geom_text_repel(aes(label = day))
+
+
+```
+
+### 13.4.4
+
+---
+
+1.
+
+```{r}
+
+flights |> 
+  summarise(
+    sum_na = sum(is.na(dep_delay)),
+    sum_not_na = sum(!is.na(dep_delay)),
+    sum_total = n(),
+    mean_na = mean(is.na(dep_delay)),
+    mean_not_na = mean(!is.na(dep_delay))
+  )
+
+```
+
+2.
+
+`prod()` returns the product of the vector
+
+```{r}
+
+flights |> 
+  select(dep_delay) |> 
+  mutate(
+    na_value = is.na(dep_delay),
+    na_prod = prod(na_value),
+    na_min = min(na_value)
+  ) |> 
+  count(na_value, na_prod, na_min)
+
+```
+
+### 13.4.5
+
+1.
+
+```{r}
+
+if_else(0:20 %% 2 == 0, "even", "odd" )
+
+```
+
+2.
+
+```{r}
+
+x <- c("Monday", "Saturday", "Wednesday")
+
+case_when(
+  x %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday") ~ "Weekday",
+  x %in% c("Saturday", "Sunday") ~ "Weekend"
+)
+
+```
+
+3.
+
+```{r}
+
+x <- -5:5
+
+if_else(x < 0, -x, x)
+
+
+```
