@@ -1,0 +1,261 @@
+---
+title: "Chapter 13 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+library(nycflights13)
+```
+
+### 14
+
+---
+
+1.
+
+```{r}
+
+flights |> count(is.na(dep_time))
+
+```
+
+2.
+
+```{r}
+
+count_dest <- flights |> count(dest, sort = TRUE)
+
+count_tailnum <- flights |> count(tailnum, wt = distance)
+
+summarise_dest <- flights |> 
+  summarise(n = n(), .by = dest) |> 
+  arrange(desc(n))
+
+summarise_tailnum <- flights |> 
+  summarise(n = sum(distance), .by = tailnum) |> 
+  arrange(tailnum)
+
+```
+
+### 14.4.8
+
+1.
+
+```{r, eval = TRUE}
+
+flights |> #Work against flights data
+  group_by(hour = sched_dep_time %/% 100) |> #group by sched_dep_time after integer division by 100
+  summarize(prop_cancelled = mean(is.na(dep_time)), n = n()) |> #calculate proportion of canceled flights (dep_time == NA) and number of flights
+  filter(hour > 1) |> #filter out the one flight at 01.00
+  ggplot(aes(x = hour, y = prop_cancelled)) + #call ggplot and set x and y
+  geom_line(color = "grey50") + # draw a grey line
+  geom_point(aes(size = n)) #draw a point, size determined by number of flights at a given hour
+
+```
+
+2.
+
+Radians, not degrees. See: https://stat.ethz.ch/R-manual/R-devel/library/base/html/Trig.html
+
+3.
+
+```{r}
+
+flights_fractional_hour <- flights |>
+  filter(month == 1, day == 1) |> 
+  select(sched_dep_time, dep_time, dep_delay) |> 
+  mutate(
+    sched_dep_time_fraction = sched_dep_time %/% 100 + sched_dep_time %% 100 / 60,
+    dep_time_fraction = dep_time %/% 100 + dep_time %% 100 / 60
+  ) 
+
+flights_fractional_hour
+
+  ggplot(
+    flights_fractional_hour,
+    aes(sched_dep_time_fraction, dep_time_fraction)) +
+  geom_point()
+
+
+```
+
+4.
+
+```{r}
+
+flights |> 
+  select(dep_time, arr_time) |> 
+  mutate(
+    dep_time_5m = round(dep_time / 5) * 5,
+    arr_time_5m = round(arr_time / 5) * 5
+  )
+
+```
+
+### 14.5.4
+
+1.
+
+```{r}
+
+flights |> 
+  mutate(arr_delay_rank = dense_rank(desc(arr_delay))) |> 
+  relocate(arr_delay_rank, arr_delay, .before = 1) |> 
+  arrange(arr_delay_rank)
+
+```
+
+2.
+
+```{r}
+
+flights |> 
+  group_by(tailnum) |> 
+  mutate(
+    mean_delayed_tailnum = mean(arr_delay, na.rm = TRUE),
+    .keep = "used"
+  ) |> 
+  arrange(desc(mean_delayed_tailnum)) |> 
+  select(!arr_delay)
+
+
+```
+
+3.
+
+Morning
+
+4.
+
+`flights |> group_by(dest) |> filter(row_number() < 4)` returns up to three  
+rows per group.
+
+`flights |> group_by(dest) |> filter(row_number(dep_delay) < 4)` returns the  
+rows with the smallest `dep_delay`, up to three rows per group. Since the  
+`dest == "LGA"` only has one observation where `dep_delay = NA`, this result in
+an `NA` in the filter call and this group being removed.
+
+5.
+
+```{r}
+
+flights |> 
+  group_by(dest) |> 
+  mutate(total_delay = sum(arr_delay, na.rm = TRUE),
+         flight_delay_proportion = dep_delay / total_delay) |> 
+  relocate(total_delay, flight_delay_proportion, .before = 1)
+
+```
+
+6.
+
+```{r}
+
+flights |> 
+  mutate(hour = dep_time %/% 100) |> 
+  group_by(year, month, day, hour) |> 
+  summarize(
+    dep_delay = mean(dep_delay, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  ) |> 
+  filter(n > 5) |> 
+  mutate(hour = factor(hour, levels = c(1:23,0))) |> 
+  ggplot(aes(x = hour, y = dep_delay, group = interaction(month, day))) +
+  geom_line()
+
+```
+
+7.
+
+```{r}
+
+flights_rel_airtime <- flights |> 
+  group_by(dest) |> 
+  mutate(rel_airtime = air_time / mean(air_time, na.rm = TRUE)) |> 
+  ungroup() |> 
+  mutate(
+    speed = cut(
+      rel_airtime,
+      breaks = c(-Inf, 0.65, 0.85, 1.25, 1.75, Inf),
+      labels = c("suspiciously fast", "fast", "normal", "slow", "heavy delay")
+    )
+  ) |> 
+  arrange(rel_airtime)
+
+flights_rel_airtime$rel_airtime |> max(na.rm = TRUE) #find max
+flights_rel_airtime$rel_airtime |> min(na.rm = TRUE) #find min
+
+flights_rel_airtime |> 
+  ggplot(aes(x = rel_airtime)) +
+  geom_histogram(binwidth = 0.05)
+
+
+flights_rel_airtime |> 
+  drop_na(rel_airtime) |> 
+  filter(row_number() %in% 1:5 | 
+        row_number() %in% (nrow(flights_rel_airtime |> drop_na(rel_airtime)) - 5):nrow(flights_rel_airtime |> drop_na(rel_airtime))
+  )
+
+
+```
+
+8.
+
+```{r}
+
+#Find destinations with at least two carriers
+dest_at_least_2_carrier <- flights |> 
+  group_by(dest) |> 
+  summarise(count = n_distinct(carrier)) |> 
+  filter(count >= 2)
+
+#Filter flights data for these destinations
+flights_filtered <- flights |> 
+  select(dest, carrier, dep_delay) |> 
+  filter(dest %in% dest_at_least_2_carrier$dest)
+
+#Create carrier ranks by comparing the delay by destination
+flights_filtered |> 
+  group_by(dest, carrier) |> #Caclulate by carriers and destination
+  mutate(avg_dep_delay = mean(dep_delay, na.rm = TRUE)) |> #Average delay
+  group_by(dest) |>  #Drop carrier grouping to compare by destination
+  mutate(rank_dest = dense_rank(avg_dep_delay)) |> 
+  arrange(dest, avg_dep_delay) |> 
+  distinct(dest, carrier, avg_dep_delay, rank_dest) |> #remove dep_delay column
+  group_by(carrier) |> 
+  mutate(rank_average = mean(rank_dest)) |> #Calculate the average rank by carrier
+  ungroup() |> 
+  mutate(rank_overall = dense_rank(rank_average)) |> #Compare the average rank between carriers
+  arrange(rank_overall) |> 
+  distinct(carrier, rank_overall)
+
+
+```
+
+### 14.6.7
+
+1.
+
+
+`mean` could be used when using variables from more similar observations (e.g. 
+the `dep_delay` for the same carrier, airport, time of day, etc.)
+
+`median` could instead be used when you want to avoid the influence of outliers that
+might occur if you compare more broadly over the whole data.
+
+The same reasoning can be applied to the variables `dep_delay` and `arr_delay` 
+where the latter would have more underlying variables and could be suspected 
+to have a larger spread.
+
+2.
+
+
+3.
+
