@@ -1,0 +1,196 @@
+---
+title: "Chapter 16 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+library(babynames)
+library(ggrepel)
+```
+
+### 16.3.5
+
+---
+
+1.
+
+
+```{r}
+
+babynames_vowels <- babynames |> 
+  distinct(name) |> 
+  mutate(
+    n_vowels = str_count(name, "[AEIOUYaeiouy]"),
+    n_total = str_length(name),
+    prop_vowel = n_vowels / n_total
+  )
+
+babynames_vowels |> 
+  arrange(desc(n_vowels)) |>  #Mariaguadalupe has the most total vowels
+  arrange(desc(prop_vowel)) |> #Many names are 100% vowels
+  count(prop_vowel == 1) #40 to be exact
+
+```
+
+2.
+
+```{r, error=TRUE}
+
+c("a/b/c/d/e") |> 
+  str_replace_all("/", "\\") |> 
+  str_replace_all("\\", "/")
+
+```
+
+3.
+
+If I understand the question, you can use `str_replace_all(ignore.case = TRUE)`.
+
+4.
+
+```{r}
+
+a_swedish_phone_number <- c("0701112233", "+46701112233")
+str_extract(a_swedish_phone_number, "\\+?[0-9]*")
+```
+
+### 16.4.7
+
+---
+
+1.
+
+```{r}
+
+r"{"'\}"
+r"{"$^$"}"
+
+```
+
+2.
+
+To create a regex matching a literal `\`, we need to use `"\\\\"`:
+
+  - `"\"` escapes the second ", resulting in an "unclosed" (open) character string.
+  - `"\\"` will not match a literal \\, because it results in a single \\, which 
+  has a function - and will not be interpreted as a literal \\.
+  - `"\\\"` runs into a similar issue as the first line: the first \\ will 
+  escape the second which escapes the third and creates an open character string.
+  
+3.
+
+```{r}
+
+str_view(words, "^y") #a
+str_view(words, "^[^y]") #b
+str_view(words, "x$") #c
+str_view(words, "^\\w{3}$") #d
+str_view(words, "^\\w{7,}$") #e
+str_view(words, "([AEIOUYaeiouy][^AEIOUYaeiouy])") #f
+str_view(words, "([AEIOUYaeiouy][^AEIOUYaeiouy]){2,}") #g
+str_view(words, "^([AEIOUYaeiouy][^AEIOUYaeiouy]){1,}$") #h
+
+```
+
+4.
+
+```{r}
+
+str_4 <- c(
+  "airplane", "aeroplane", 
+  "aluminum", "aluminium", 
+  "analog", "analogue", 
+  "ass", "arse", 
+  "center", "centre", 
+  "defense", "defence", 
+  "donut", "doughnut", 
+  "gray", "grey", 
+  "modeling", "modelling", 
+  "skeptic", "sceptic", 
+  "summarize", "summarise"
+          )
+
+str_view(str_4, "a(i|e)ro?plane") #1
+str_view(str_4, "alumi(ni|n)um") #2
+str_view(str_4, "analog(ue)?") #3
+str_view(str_4, "^a(ss|rse)$") #4
+str_view(str_4, "cent(er|re)") #5
+str_view(str_4, "defen(s|c)e") #6
+str_view(str_4, "do(ugh)?nut") #7
+str_view(str_4, "gr(a|e)y") #8
+str_view(str_4, "model+ing") #9
+str_view(str_4, "s(k|c)eptic") #10
+str_view(str_4, "summari(z|s)e") #11
+
+```
+
+5.
+
+```{r}
+
+words_scramble <- words |> 
+str_replace("([a-zA-Z])(.*)([a-zA-Z])","\\3\\2\\1")
+
+as_tibble(words) |> 
+  filter(words %in% words_scramble) |> 
+  print(n = Inf)
+
+
+```
+
+6.
+
+  a. `^.*$` captures a whole word
+  b. `"\\{.+\\}"` captures a string that contains any number of character
+  enclosed by {}
+  c. `\d{4}-\d{2}-\d{2}` will match a date format YYYY-MM-DD
+  d. Will match "\\{4}"
+  e. Will match strings with three repeats of .. separated by a single \\
+  f. Will match three repeats of the first character
+  g. Will match two repeats
+  
+### 16.6.4
+
+---
+
+1.
+
+```{r}
+
+#a
+str_view(words, "^x|x$")
+words[
+  str_detect(words, "^x") |
+  str_detect(words, "x$")
+]
+
+#b
+str_view(words, "^[aieouy].*[^aieouy]$")
+
+words[
+  str_detect(words, "^[aieouy]") &
+  str_detect(words, "[^aieouy]$")
+]
+
+#c
+str_view(words, "a.*e.*i.*o.*u")
+
+words[
+  str_detect(words, "a") &
+    str_detect(words, "e") &
+    str_detect(words, "i") &
+    str_detect(words, "o") &
+    str_detect(words, "u")
+]
+
+```
+
+2.
+
+

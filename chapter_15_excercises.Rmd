@@ -1,5 +1,5 @@
 ---
-title: "Chapter 13 excercises"
+title: "Chapter 15 excercises"
 author: "Hugo Åkerstrand"  
 date: "`r Sys.Date()`"
 output: html_document
@@ -159,7 +159,7 @@ babynames_analysis |>
   filter(name %in% pull(filter(favorite_names_old_modern, sex == "F"), name) & sex == "F" |
          name %in% pull(filter(favorite_names_old_modern, sex == "M"), name) & sex == "M"
   ) |> #Filter out names given female or male sex
-  ggplot(aes(x = year, y = prop)) +
+  ggplot(aes(x = year, y = prop, color = name)) +
   geom_line(aes(color = name)) +
   facet_grid(popularity ~ sex)
   
