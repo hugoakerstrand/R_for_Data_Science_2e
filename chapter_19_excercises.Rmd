@@ -1,0 +1,60 @@
+---
+title: "Chapter 19 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+library(nycflights13)
+```
+
+### 19
+
+---
+
+1.
+
+```{r}
+
+planes 
+
+#Check what colnames are overlapping between data sets
+intersect(
+  colnames(flights),
+  colnames(planes)
+)
+
+#Use tailnum to identify missing planes
+missing_tailnum <- flights |> 
+  distinct(tailnum) |> 
+  anti_join(planes)
+
+#Now tabulate if there is an overrepresentation of missing planes by carrier
+flights |> 
+  mutate(
+    missing = case_when(
+      tailnum %in% pull(missing_tailnum) ~ "missing",
+      TRUE ~ "present"
+              )
+  ) |> 
+  group_by(carrier) |> 
+  count(missing) |> 
+  ungroup() |> 
+  complete(carrier, missing) |> #Add in the missing rows (i.e. carriers with all planes present)
+  mutate(n = coalesce(n, 0)) |> #Change the NA to 0, for arrange (see below)
+  group_by(carrier) |> 
+  mutate(n_missing = n[missing == "missing"]) |>
+  arrange(desc(n_missing)) |> 
+  ungroup() |> 
+  select(!n_missing) |> #Drop this column, else the pivot wide will look very strange
+  mutate(carrier = fct(carrier)) |> #Use forcats::fct, uses arranged carriers as levels
+  pivot_wider(names_from = carrier, values_from = n)
+
+
+```
+
