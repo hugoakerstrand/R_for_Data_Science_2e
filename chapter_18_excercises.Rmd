@@ -1,0 +1,238 @@
+---
+title: "Chapter 18 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+library(nycflights13)
+library(hms)
+```
+
+### 18.2.5
+
+---
+
+1.
+
+```{r}
+
+ymd(c("2010-10-10", "bananas"))
+
+```
+
+2.
+
+`tzone` specifies the time zone, which is by default set as your computer's.
+
+3.
+
+```{r}
+
+tibble(
+d1 <- "January 1, 2010",
+readr::parse_date(d1, "%B %d, %Y"),
+lubridate::parse_date_time(d1, "%B %d, %Y")
+)
+
+tibble(
+d2 <- "2015-Mar-07",
+readr::parse_date(d2, "%Y-%b-%d"),
+lubridate::ymd(d2)
+)
+
+tibble(
+d3 <- "06-Jun-2017",
+readr::parse_date(d3, "%d-%b-%Y"),
+lubridate::parse_date_time(d3, "%d-%b-%Y")
+)
+
+tibble(
+d4 <- c("August 19 (2015)", "July 1 (2015)"),
+readr::parse_date(d4, "%B %d (%Y)"),
+lubridate::parse_date_time(d4, "%B %d (%Y)")
+)
+
+tibble(
+d5 <- "12/30/14", # Dec 30, 2014
+readr::parse_date(d5,"%m/%d/%y"),
+lubridate::mdy(d5)
+)
+
+tibble(
+t1 <- "1705",
+lubridate::parse_date_time(t1, "%H%M") |> hms::as_hms(),
+readr::parse_time(t1, "%H%M")
+)
+
+tibble(
+t2 <- "11:15:10.12 PM",
+readr::parse_time(t2, "%I:%M:%OS %p"),
+lubridate::parse_date_time(t2, "%I:%M:%OS %p")|> hms::as_hms()
+)
+
+
+```
+
+### 18.3.4
+
+---
+
+1.
+
+Looking at the distribution of departure times within a given month reveals no 
+clear changes across the year: there is a peak of departure early in the morning 
+and around dinner time.
+
+```{r}
+#Create a new data frame containing shceduled departure date, month, and time
+flights_dept_data <- flights |> 
+  mutate(
+    departure_month = lubridate::month(month, label = TRUE, abbr = FALSE, locale = "en_GB"),
+    departure = make_datetime(year, month, day, hour, minute),
+    departure_scheduled = hms::as_hms(departure)
+  )
+  
+#Plot the freqplot of scheduled departure time within a given month
+flights_dept_data |> 
+  ggplot(aes(x = departure_scheduled)) +
+  geom_freqpoly() +
+  facet_wrap(~ departure_month)
+
+```
+
+2.
+
+```{r}
+
+# Add extra information about departure time, reported and actual delay, and any 
+# difference
+flights_dept_data <- flights_dept_data |> 
+  mutate(
+    departure_actual = hms(hours = dep_time %/% 100, minutes = dep_time %% 100),
+    departure_delay_reported = hms(minutes = dep_delay),
+    departure_delay_actual = hms(seconds_to_period(departure_actual - departure_scheduled)),
+    departure_delta = hms(seconds_to_period(departure_delay_actual - departure_delay_reported))
+  ) 
+
+# Filter out observations where the reported and actual delay don't match
+flights_dept_data |> 
+  filter(departure_delay_reported != departure_delay_actual)
+  
+# These mistakes seems to be due to the fact that some flights are delayed until
+# the next day.
+flights_dept_data |> 
+  select(dep_time, sched_dep_time, contains(c("departure_delay"))) |> 
+  filter(departure_delay_reported != departure_delay_actual)
+
+# Let's correct these observations specifically, by instead accounting for that
+# these delays were into the next day 
+
+flights_dept_data_corrected <- flights_dept_data |> 
+  mutate(
+    departure_delay_actual = if_else(
+      departure_delay_reported != departure_delay_actual,
+      hms(seconds_to_period(24 * 60 * 60 - (departure_scheduled - departure_actual))),
+      departure_delay_actual
+                              ),
+    departure_delta = hms(seconds_to_period(departure_delay_actual - departure_delay_reported))
+  )
+
+#Now all reported and actual times seem to overlap
+flights_dept_data_corrected |> 
+  filter(departure_delay_reported != departure_delay_actual)
+
+
+```
+
+3.
+
+Calculating and comparing `actual_air_time` to reported `air_time` shows that the
+latter is including time zone difference.
+
+```{r}
+
+flights_dept_data_corrected |> 
+  mutate(
+    arrival_actual = hms(hours = arr_time %/% 100, minutes = arr_time %% 100),
+    air_time = hms(hours = air_time %/% 100, minutes = air_time %% 100),
+    actual_air_time = hms(seconds_to_period(arrival_actual - departure_actual))
+  ) |> 
+  select(departure_actual, arrival_actual, air_time, actual_air_time)
+
+
+```
+
+4.
+
+If we plot the average delay by time of day, we see that using the actual 
+departure time inflates the average delay of the early (night) flights - this is
+probably due the actual departure includes a lot of delayed flights from the day 
+before. As such, we should use the scheduled departure time.
+
+```{r}
+
+#Filter out the variables of interest
+filtered <- flights_dept_data_corrected |> 
+  select(departure_scheduled, departure_actual, departure_delay_actual)
+
+#Calculate the average and plot, for scheduled or actual departure time
+filtered |> 
+  pivot_longer(1:2, values_to = "time") |> #Pivot into one column before summarise
+  group_by(name, time) |> 
+  summarise(
+    avg_delay = hms(seconds_to_period(mean(departure_delay_actual, na.rm = TRUE))),
+    n = n(),
+    .groups = "drop"
+  ) |> 
+  ggplot(aes(x = time, y = avg_delay)) +
+  geom_col() +
+  facet_wrap(~ name)
+
+```
+
+5.
+
+Not correcting for any other factors (such as airport, destination, etc): go on
+a Saturday.
+
+```{r}
+
+wday_delay <- flights_dept_data_corrected |> 
+  mutate(wday = wday(make_date(year,month,day), label = TRUE, abbr = FALSE, locale = "en_GB")) |> 
+  select(wday,departure_delay_actual)
+
+wday_delay |> 
+  group_by(wday) |> 
+  summarise(
+   avg_delay = hms(seconds_to_period(mean(departure_delay_actual, na.rm = TRUE))),
+   n = n()
+  ) |> 
+  ggplot(aes(x = wday, y = avg_delay)) +
+  geom_col()
+
+```
+
+6.
+
+They are both not really continuous:
+
+```{r}
+
+diamonds_plot <- ggplot(diamonds, aes(carat)) +
+  geom_histogram(bins = 500)
+
+flights_plot <- ggplot(flights, aes(sched_dep_time)) +
+  geom_histogram(bins = 250)
+
+library(patchwork)
+diamonds_plot + flights_plot
+
+```
+
+

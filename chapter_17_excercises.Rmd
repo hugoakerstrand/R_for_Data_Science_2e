@@ -1,0 +1,192 @@
+---
+title: "Chapter 17 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+library(babynames)
+library(ggrepel)
+```
+
+### 17.3.1
+
+---
+
+1.
+
+```{r}
+
+#Default bar plot showing counts of factor levels: data is disordered
+gss_cat |> 
+  ggplot() +
+  geom_bar(aes(x = rincome)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#Re-ordering rincome factor levels by count improves, but still confusing as 
+#the rincome levels are not ordered
+gss_cat |> 
+  count(rincome) |> 
+  mutate(rincome = fct_reorder(rincome, n)) |> 
+  ggplot() +
+  geom_col(aes(x = rincome, y = n)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+2.
+
+```{r}
+
+#Protestant is the most common relig
+gss_cat |> 
+  count(relig) |> 
+  arrange(desc(n))
+
+#Independent is the most common partyid
+gss_cat |> 
+  count(partyid, sort = TRUE) 
+
+```
+
+3.
+
+```{r}
+
+#Table view
+gss_cat |>
+  group_by(relig) |> 
+  count(denom)
+
+gss_cat |> 
+  ggplot() +
+  geom_bar(aes(x = relig, fill = denom)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+```
+
+### 17.4.1
+
+---
+
+1.
+
+`tvhours` does not look like it is normally distributed, mean is therefore not
+informative. 
+
+```{r}
+
+gss_cat |> 
+  ggplot() +
+  geom_histogram(aes(x = tvhours))
+
+```
+
+2.
+
+Let's create a bar graph of all columns that are factors, with counts for each
+factor level for additional information. To my eye, everything seems arbitrary 
+except for income.
+
+```{r, fig.height= 25}
+
+gss_cat |> 
+  select(where(is.factor)) |> #Select out columns that are factors
+  pivot_longer(cols = marital:denom) |> #Pivot all columns for graphing
+  group_by(name, value) |> 
+  count() |> #This step could be omitted if geom_bar was used
+  ggplot() +
+  geom_col(aes(x = n, y = value)) +
+  facet_wrap(~ name, scales = "free_y", ncol = 1)
+
+```
+
+3.
+
+It follows the order of factor levels, use e.g. `desc` to get the opposite.
+
+```{r}
+
+rincome <- gss_cat |> 
+  pull(rincome) |> 
+  levels()
+
+rincome_releved <- gss_cat |> 
+  mutate(
+   rincome = fct_relevel(rincome, "Not applicable")
+  ) |> 
+  pull(rincome) |> 
+  levels()
+
+tibble(
+ rincome,
+ rincome_releved
+)  
+
+
+```
+
+### 17.5.1
+
+---
+
+1.
+
+```{r}
+
+gss_cat |> 
+  pull(partyid) |> 
+  levels()
+
+gss_cat |> 
+  mutate(
+    partyid = 
+      fct_collapse(
+        partyid,
+        "Indep" = c("Ind,near rep", "Independent", "Ind,near dem"),
+        "Dem" = c("Not str democrat", "Strong democrat"),
+        "Rep" = c("Strong republican", "Not str republican"),
+        "Other" = c("No answer", "Don't know", "Other party")
+      )
+  ) |> 
+  group_by(year, partyid) |> 
+  summarise(
+    n = n(),
+    .groups = "drop"
+  ) |> 
+  mutate(
+    prop = n / sum(n),
+    .by = c("year")
+  ) |> 
+  ggplot(aes(year, prop, color = fct_reorder2(partyid, year, prop))) +
+  geom_line() +
+  geom_point()
+
+
+
+```
+
+2.
+
+One quick way is to lump the smaller groups by using `fct_lump_n`
+
+```{r}
+
+gss_cat |> 
+  count(rincome)
+
+gss_cat |> 
+  mutate(
+    rincome = fct_lump_n(rincome, 5)
+  )|> 
+  count(rincome)
+
+
+```
+
