@@ -1,0 +1,114 @@
+---
+title: "Chapter 21 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(readxl)
+library(tidyverse)
+library(writexl)
+library(googlesheets4)
+library(openxlsx)
+```
+
+### 21.2.9
+
+---
+
+1.
+
+```{r}
+
+survey.df <- read_xlsx("data/survey.xlsx", 
+                       col_types = c("text", "text"), 
+                       na = c("", "N/A")
+            )
+
+survey.df <- survey.df |> 
+  mutate(n_pets = if_else(n_pets == "two", "2", n_pets),
+         n_pets = parse_number(n_pets)
+  )
+
+survey.df
+```
+
+2.
+
+```{r}
+
+ roster.df <- read_xlsx("data/roster.xlsx") |> 
+  fill(group, subgroup)
+
+roster.df
+```
+
+3.
+
+```{r}
+
+sales_df <-  read_xlsx("data/sales.xlsx", skip = 2, col_names = c("id","n"))
+
+sales_df <- sales_df |> 
+  mutate(brand = if_else(str_detect(id, "Brand"), id, NA)) |> 
+  fill(brand) |> 
+  filter(n != "n") |> 
+  relocate(brand) |> 
+  mutate(
+    id = as.numeric(id),
+    n = as.numeric(n)
+  )
+
+
+```
+
+4.
+
+```{r}
+
+bake_sale <- tibble(
+  item     = factor(c("brownie", "cupcake", "cookie")),
+  quantity = c(10, 5, 8)
+)
+
+bake_sale
+
+openxlsx::write.xlsx(bake_sale, "data/bake_sale.xlsx")
+
+```
+
+6.
+
+```{r, error = TRUE}
+
+read_xls("data/bake_sale.xlsx")
+
+```
+
+### 21.3.6
+
+---
+
+2.
+
+```{r}
+
+survey_sheet_id <- "1yc5gL-a2OOBr8M7B3IsDNX5uR17vBHOyWZq6xSTG2G8"
+read_sheet(survey_sheet_id, col_types = "cd")
+
+```
+
+3.
+
+```{r}
+
+roster_sheet_id <- "1LgZ0Bkg9d_NK8uTdP2uHXm07kAlwx8-Ictf8NocebIE"
+read_sheet(roster_sheet_id) |> 
+  fill(group, subgroup)
+
+```
+

@@ -1,0 +1,259 @@
+---
+title: "Chapter 20 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+library(nycflights13)
+library(hms)
+```
+
+### 20.2.4
+
+---
+
+1.
+
+Weather and airports share the primary keys `origin` or `faa` (respectively).
+
+2.
+
+If weather it extended `origin`, it wouldn't change any of its keys - only extend.
+
+3.
+
+```{r}
+
+#Identify duplicates
+weather_dups <- weather |> 
+  count(year, month, day, hour, origin) |> 
+  filter(n > 1)
+
+# Find them in the full data set - look for additional information.
+# A quick google tells me that this was the DST date, probably the cause for 
+# duplicate values.
+left_join(weather_dups, weather)
+
+
+```
+
+4.
+
+We coud create a new data frame with a column stating the `holiday` name, and use
+`year`, `month`, and `day` as primary keys.
+
+5.
+
+### 20.3.4
+
+1.
+
+```{r}
+
+# Make a date from year, month, and day
+flights_date <- flights |> 
+  mutate(
+    date = make_date(year, month, day)
+  )
+
+#Calculate time elapsed in hours from the minimum date
+min_date <- pull(flights_date, date)[1]
+
+flights_date <- flights_date |> 
+  mutate(
+    time_elapsed_hours = as.numeric(difftime(date, min_date, units = "hours"))
+  )
+
+# Create new variable group: dividing time into 48 hour bins
+flights_date <- flights_date |> 
+  mutate(
+    group = floor(time_elapsed_hours / 48) + 1
+  )
+
+# Calculate the avgerage delay by 48 hour group
+flights_date <- flights_date |> 
+  mutate(avg_delay = mean(dep_delay, na.rm = TRUE), .by = group)
+
+# Pull out top 5 worst 48 hour periods
+flights_date_worst <- flights_date |> 
+  arrange(desc(avg_delay)) |> 
+  distinct(date, group, avg_delay) |> 
+  slice(1:10) |> # 5 time periods * 2 days each
+  mutate(delay = "worst")
+
+# Pull out top 5 best 48 hour periods
+flights_date_best <- flights_date |> 
+  arrange(avg_delay) |> 
+  distinct(date, group, avg_delay) |> 
+  slice(1:10) |> # 5 time periods * 2 days each
+  mutate(delay = "best")
+
+# Bind their rows into a new tibble
+flights_date_worst_best <- bind_rows(flights_date_worst, flights_date_best)
+
+flights_date_worst_best |> 
+  print(n = Inf)
+
+# Add date, time elapsed, and group, to weather (as was done before)
+weather_date <- weather |> 
+  mutate(
+    date = make_date(year, month, day),
+    time_elapsed_hours = as.numeric(difftime(date, min_date, units = "hours")),
+    group = floor(time_elapsed_hours / 48) + 1
+  ) 
+
+#Add in information to weather_date if day is among worst or best
+weather_date <- weather_date |> 
+  left_join(flights_date_worst_best)
+
+#Plot a boxplot of weather data, color by worst or best (least) delay
+weather_date |> 
+  pivot_longer(temp:wind_gust, names_to = "parameters", values_to = "measurement") |> 
+  filter(delay %in% c("worst","best")) |> 
+  ggplot(aes(x = delay, y = measurement, color = delay)) +
+  geom_boxplot() +
+  facet_wrap(~ parameters, scales = "free_y")
+
+
+```
+
+2.
+
+```{r}
+
+# Provided code
+flights2 <- flights |> 
+  select(year, time_hour, origin, dest, tailnum, carrier)
+
+top_dest <- flights2 |>
+  count(dest, sort = TRUE) |>
+  head(10)
+
+# Pull out the flights to top destinations
+top_dest_flights <- flights_date |> 
+  filter(dest %in% pull(top_dest, dest)) |> 
+  mutate(time = parse_date_time(sched_dep_time, "%H%M") |> as_hms()) |> 
+  distinct(dest,origin, flight, date, time) |> 
+  arrange(date, dest)
+
+```
+
+3.
+
+```{r}
+
+
+# Create a date and time variable for joining to top flights dataframe
+weather_dttm <- weather |> 
+  mutate(
+    date = date(time_hour),
+    time = as_hms(time_hour)
+  ) |> 
+  select(!c(year:hour, time_hour))
+
+# Joining the two shows the problem with using an exact time - a lot of "missing" 
+# weather data
+top_dest_weather <-left_join(top_dest_flights, weather_dttm)
+
+# Workaround - bin the data by time of day (top flights dataframe)
+top_dest_flights_timeofday <- top_dest_flights |> 
+  mutate(
+    time_of_day = case_when(
+      hour(time) <= 5 ~ "night",
+      hour(time) > 5 & hour(time) <= 11 ~ "morning",
+      hour(time) > 11 & hour(time) <= 17 ~ "mid day",
+      hour(time) > 17 & hour(time) <= 23.59 ~ "evening",
+                  )
+  ) 
+
+# Workaround - bin the data by time of day (weather dataframe)
+weather_dttm_timeofday <- weather_dttm |> 
+  mutate(
+    time_of_day = case_when(
+      hour(time) <= 5 ~ "night",
+      hour(time) > 5 & hour(time) <= 11 ~ "morning",
+      hour(time) > 11 & hour(time) <= 17 ~ "mid day",
+      hour(time) > 17 & hour(time) <= 23.59 ~ "evening",
+    )
+  ) |> 
+  select(!time) |> 
+  group_by(origin, date, time_of_day) |> 
+  mutate(
+    across(
+      temp:visib, ~ mean(.x, na.rm = TRUE)
+    )
+  ) |> 
+  distinct(
+    origin, date, time_of_day, .keep_all = TRUE
+  )
+  
+# Now join by time_of_day instead of an exact time
+top_dest_weather_time_of_day <- left_join(
+  top_dest_flights_timeofday, weather_dttm_timeofday, 
+  by = join_by("origin", "date", "time_of_day")
+)
+
+```
+
+4.
+from `?planes`:
+*Plane metadata for all plane tailnumbers found in the FAA aircraft registry.
+American Airways (AA) and Envoy Air (MQ) report fleet numbers rather than tail 
+numbers so can't be matched.*
+
+```{r}
+
+flights |> 
+  anti_join(planes, join_by("tailnum")) |> 
+  summarise(
+    n = n(),
+    .by = carrier,
+    .order = TRUE
+  ) |> 
+  mutate(
+    prop = n / sum(n)
+  )
+
+```
+
+From this, we see that ~90% of the missing tailnums are from these carriers.
+
+5.
+
+```{r}
+
+# Isolate all distinct carrier and tailnum observations
+all_carrier_tailnum <- flights |> 
+  filter(!is.na(tailnum)) |> 
+  select(tailnum, carrier) |> 
+  distinct()
+
+# OBS! These two following steps are optional but helpful to arrange and inspect
+# if the code is producing the desired result
+
+# Count the observations of tailnums (i.e. >2 is duplicated)
+dups <- all_carrier_tailnum |> count(tailnum) |> arrange(desc(n))
+
+# Join them
+all_carrier_tailnum <- left_join(all_carrier_tailnum, dups) |>  arrange(desc(n), tailnum)
+
+# Create a new variable "active_carriers", that combines all carriers for a
+# given tailnum
+all_carrier_tailnum <- all_carrier_tailnum |>
+  mutate(active_carriers = str_c(carrier, collapse = "_"), .by = tailnum)
+
+
+# Add this information to the planes dataframe
+left_join(planes, all_carrier_tailnum, by = join_by(tailnum)) |> 
+  relocate(active_carriers, before = 1) |> 
+  arrange(desc(n))
+
+
+```
+
