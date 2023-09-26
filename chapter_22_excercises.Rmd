@@ -1,0 +1,57 @@
+---
+title: "Chapter 22 excercises"
+author: "Hugo Åkerstrand"  
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=TRUE}
+library(DBI)
+library(dbplyr)
+library(tidyverse)
+library(duckdb)
+
+dbplyr::copy_nycflights13(con)
+flights <- tbl(con, "flights")
+planes <- tbl(con, "planes")
+```
+
+### 22.5.9
+
+---
+
+1.
+
+```{r}
+flights |> 
+distinct() |> 
+  show_query()
+
+flights |> 
+head() |> 
+  show_query()
+```
+
+2.
+
+```{r}
+
+flights |> 
+  filter(dep_delay < arr_delay) |> 
+  show_query()
+
+```
+
+```{r}
+
+flights |> 
+  mutate(
+    speed = distance / (air_time / 60)
+  ) |> 
+  show_query()
+
+```
+
